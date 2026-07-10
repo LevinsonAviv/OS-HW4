@@ -10,6 +10,19 @@ struct MallocMetadata {
     MallocMetadata* prev;
 };
 
+void* smalloc(size_t);
+void* scalloc(size_t, size_t);
+void sfree(void*);
+void* srealloc(void*, size_t);
+size_t _num_free_bytes();
+size_t _num_free_blocks();
+size_t _num_allocated_blocks();
+size_t _num_allocated_bytes();
+size_t _num_meta_data_bytes();
+size_t _size_meta_data();
+MallocMetadata* _get_free_block(size_t);
+MallocMetadata* _allocate_new_block(size_t);
+
 MallocMetadata *blockListHead = NULL;
 MallocMetadata *blockListTail = NULL;
 
