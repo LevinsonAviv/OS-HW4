@@ -10,21 +10,31 @@ struct MallocMetadata {
     MallocMetadata* prev;
 };
 
+// API functions
 void* smalloc(size_t);
 void* scalloc(size_t, size_t);
 void sfree(void*);
 void* srealloc(void*, size_t);
+
+// statistics functions
 size_t _num_free_bytes();
 size_t _num_free_blocks();
 size_t _num_allocated_blocks();
 size_t _num_allocated_bytes();
 size_t _num_meta_data_bytes();
 size_t _size_meta_data();
+
+// heap allocator helper functions
 MallocMetadata* _get_free_block(size_t);
 MallocMetadata* _allocate_new_block(size_t);
 
+// global variables
 MallocMetadata *blockListHead = NULL;
 MallocMetadata *blockListTail = NULL;
+
+// =======================================
+// API functions
+// =======================================
 
 void* smalloc(size_t size) {
     MallocMetadata *newBlock;
@@ -49,6 +59,9 @@ void sfree(void* p) {
         return;
     }
     MallocMetadata *blockMetadata = (MallocMetadata*)((char*)p - _size_meta_data());
+    if(blockMetadata->is_free){
+        return;
+    }
     blockMetadata->is_free = true;
 }
 
@@ -68,6 +81,10 @@ void* srealloc(void* oldp, size_t size) {
     sfree(oldp);
     return newp;
 }
+
+// =======================================
+// statistics functions
+// =======================================
 
 size_t _num_free_blocks() {
     size_t num = 0;
@@ -121,6 +138,10 @@ size_t _size_meta_data() {
     static size_t size = sizeof(MallocMetadata);
     return size;
 }
+
+// =======================================
+// heap allocator helper functions
+// =======================================
 
 MallocMetadata* _get_free_block(size_t size) {
     MallocMetadata *currentBlock = blockListHead;
