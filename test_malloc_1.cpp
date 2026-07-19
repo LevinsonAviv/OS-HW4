@@ -1,58 +1,89 @@
-#include <iostream>
-#include <cassert>
-#include "os_malloc.h"
+#include <cstddef>
+#include <cstdio>
+#include <cstring>
+#include <unistd.h>
 
-#define MAX_MALLOC 100000001
+extern void* smalloc(size_t size);
 
-void test_basic_allocation() {
-    std::cout << "Test 1: Basic allocation... ";
-    void* p = smalloc(100);
-    assert(p != NULL);
-    std::cout << "PASSED" << std::endl;
+static int g_failures = 0;
+
+#define CHECK(cond)                                                        \
+    do {                                                                   \
+        if (!(cond)) {                                                     \
+            printf("  FAIL: %s (line %d)\n", #cond, __LINE__);             \
+            g_failures++;                                                  \
+        }                                                                  \
+    } while (0)
+
+static void test_size_zero_returns_null()
+{
+    printf("test_size_zero_returns_null\n");
+    CHECK(smalloc(0) == NULL);
 }
 
-void test_integer_array() {
-    std::cout << "Test 2: Integer array... ";
-    int* arr = static_cast<int*>(smalloc(10 * sizeof(int)));
-    assert(arr != NULL);
-    for (int i = 0; i < 10; i++) arr[i] = i * 100;
-    for (int i = 0; i < 10; i++) assert(arr[i] == i * 100);
-    std::cout << "PASSED" << std::endl;
+static void test_size_too_large_returns_null()
+{
+    printf("test_size_too_large_returns_null\n");
+    CHECK(smalloc(100000001) == NULL);
+    CHECK(smalloc((size_t)-1) == NULL);
 }
 
-void test_large_allocation() {
-    std::cout << "Test 3: Large allocation rejection... ";
-    void* large = smalloc(MAX_MALLOC);
-    assert(large == NULL);
-    void* large_ok = smalloc(MAX_MALLOC - 2);
-    assert(large_ok != NULL);
-    std::cout << "PASSED" << std::endl;
+static void test_size_at_max_boundary_succeeds()
+{
+    printf("test_size_at_max_boundary_succeeds\n");
+    void* p = smalloc(100000000);
+    CHECK(p != NULL);
 }
 
-void test_zero_allocation() {
-    std::cout << "Test 4: Zero allocation rejection... ";
-    void* zero = smalloc(0);
-    assert(zero == NULL);
-    std::cout << "PASSED" << std::endl;
+static void test_happy_path_is_writable()
+{
+    printf("test_happy_path_is_writable\n");
+    const size_t n = 128;
+    char* p = (char*)smalloc(n);
+    CHECK(p != NULL);
+    if (p != NULL) {
+        memset(p, 0xAB, n);
+        CHECK((unsigned char)p[0] == 0xAB);
+        CHECK((unsigned char)p[n - 1] == 0xAB);
+    }
 }
 
-void test_multiple_allocations() {
-    std::cout << "Test 5: Multiple allocations... ";
-    void* p1 = smalloc(50);
-    void* p2 = smalloc(100);
-    void* p3 = smalloc(200);
-    assert(p1 != NULL && p2 != NULL && p3 != NULL);
-    assert(p1 != p2 && p2 != p3 && p1 != p3);
-    std::cout << "PASSED" << std::endl;
+static void test_consecutive_allocs_are_adjacent()
+{
+    printf("test_consecutive_allocs_are_adjacent\n");
+    const size_t n = 64;
+    char* a = (char*)smalloc(n);
+    char* b = (char*)smalloc(n);
+    CHECK(a != NULL);
+    CHECK(b != NULL);
+    if (a != NULL && b != NULL) {
+        CHECK(b == a + n);
+    }
 }
 
-int main() {
-    std::cout << "malloc_1 tests:" << std::endl;
-    test_basic_allocation();
-    test_integer_array();
-    test_large_allocation();
-    test_zero_allocation();
-    test_multiple_allocations();
-    std::cout << "All tests PASSED" << std::endl;
-    return 0;
+static void test_break_does_not_move_on_invalid_request()
+{
+    printf("test_break_does_not_move_on_invalid_request\n");
+    void* before = sbrk(0);
+    void* p = smalloc(0);
+    void* after = sbrk(0);
+    CHECK(p == NULL);
+    CHECK(before == after);
+}
+
+int main()
+{
+    test_size_zero_returns_null();
+    test_size_too_large_returns_null();
+    test_size_at_max_boundary_succeeds();
+    test_happy_path_is_writable();
+    test_consecutive_allocs_are_adjacent();
+    test_break_does_not_move_on_invalid_request();
+
+    if (g_failures == 0) {
+        printf("\nALL TESTS PASSED\n");
+        return 0;
+    }
+    printf("\n%d CHECK(S) FAILED\n", g_failures);
+    return 1;
 }

@@ -66,6 +66,9 @@ void sfree(void* p) {
 }
 
 void* srealloc(void* oldp, size_t size) {
+    if(size == 0 || size > MAX_MALLOC){
+        return NULL;
+    }
     if(oldp == NULL){
         return smalloc(size);
     }
